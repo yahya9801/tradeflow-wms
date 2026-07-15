@@ -159,25 +159,38 @@ select (select count(*)::int from lot_movements m, l where m.lot_id = l.id and m
 ```
 Expected: `1` (the trigger opened a stay when the seed inserted the stored lot — if the seed ran before this migration existed, expect `0`; Task 2 backfills, so re-run this check after Task 2).
 
-Then exercise a transition and confirm the stay closes and reopens:
+Then exercise a transition with **explicit statements**, checking after each.
+
+> Do **not** use a `DO $$ … $$` block for this: `RAISE NOTICE` is not a result
+> row so `scripts/db.ts` prints nothing, and a `raise exception` rolls the whole
+> block back — leaving no evidence either way. Separate statements make each
+> effect observable.
+
 ```bash
-npx tsx scripts/db.ts "
-do \$\$
-declare v_lot uuid; v_shed uuid;
-begin
-  select id, shed_id into v_lot, v_shed from lots where status='stored' limit 1;
-  update lots set status='dispatched' where id = v_lot;                   -- should close the stay
-  if exists (select 1 from lot_movements where lot_id=v_lot and removed_at is null) then
-    raise exception 'FAIL: stay still open after dispatch';
-  end if;
-  update lots set status='stored', shed_id=v_shed where id = v_lot;       -- should reopen
-  if not exists (select 1 from lot_movements where lot_id=v_lot and removed_at is null) then
-    raise exception 'FAIL: stay not reopened after store';
-  end if;
-  raise notice 'PASS: trigger closes and reopens stays';
-end \$\$;"
+LOT=$(npx tsx scripts/db.ts "select id from lots where status='stored' limit 1" | grep -oE '[0-9a-f-]{36}')
+SHED=$(npx tsx scripts/db.ts "select shed_id from lots where id='$LOT'" | grep -oE '[0-9a-f-]{36}')
+
+# store → should OPEN a stay
+npx tsx scripts/db.ts "update lots set status='dispatched' where id='$LOT'"
+npx tsx scripts/db.ts "update lots set status='stored', shed_id='$SHED' where id='$LOT'"
+npx tsx scripts/db.ts "select count(*) filter (where removed_at is null)::int as open from lot_movements where lot_id='$LOT'"
 ```
-Expected: no exception (a `PASS` notice). Note this leaves one extra closed stay behind — harmless, and Task 2 reseeds anyway.
+Expected: `open = 1`.
+
+```bash
+# dispatch → should CLOSE the stay
+npx tsx scripts/db.ts "update lots set status='dispatched' where id='$LOT'"
+npx tsx scripts/db.ts "select count(*) filter (where removed_at is null)::int as open,
+                              count(*) filter (where removed_at is not null)::int as closed
+                       from lot_movements where lot_id='$LOT'"
+```
+Expected: `open = 0`, `closed = 1`.
+
+```bash
+# restore state (Task 2 reseeds anyway, but leave the DB sane)
+npx tsx scripts/db.ts "update lots set status='stored' where id='$LOT'"
+npx tsx scripts/db.ts "delete from lot_movements where lot_id='$LOT'"
+```
 
 - [ ] **Step 5: Commit**
 
