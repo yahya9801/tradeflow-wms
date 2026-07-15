@@ -51,73 +51,94 @@
   --radius-4xl: calc(var(--radius) * 2.6);
 }
 
+/*
+ * Deep teal on tinted neutrals. The hue is drawn from this product's own world
+ * (ports, sea freight, grain) rather than the indigo every dashboard defaults to.
+ *
+ * Amber/orange/red are deliberately NOT brand candidates: the reserved status
+ * palette uses #fab219 (near capacity) and #d03b3b (over capacity), and a brand
+ * hue near those would stop an alert reading as an alert.
+ *
+ * Surface chroma stays <= 0.012 — enough to feel deliberate, not enough to
+ * compete with dense numbers.
+ */
 :root {
-  --background: oklch(1 0 0);
-  --foreground: oklch(0.145 0 0);
+  --background: oklch(0.995 0.002 195);
+  --foreground: oklch(0.17 0.015 220);
   --card: oklch(1 0 0);
-  --card-foreground: oklch(0.145 0 0);
+  --card-foreground: oklch(0.17 0.015 220);
   --popover: oklch(1 0 0);
-  --popover-foreground: oklch(0.145 0 0);
-  --primary: oklch(0.205 0 0);
-  --primary-foreground: oklch(0.985 0 0);
-  --secondary: oklch(0.97 0 0);
-  --secondary-foreground: oklch(0.205 0 0);
-  --muted: oklch(0.97 0 0);
-  --muted-foreground: oklch(0.556 0 0);
-  --accent: oklch(0.97 0 0);
-  --accent-foreground: oklch(0.205 0 0);
-  --destructive: oklch(0.577 0.245 27.325);
-  --border: oklch(0.922 0 0);
-  --input: oklch(0.922 0 0);
-  --ring: oklch(0.708 0 0);
-  --chart-1: oklch(0.87 0 0);
-  --chart-2: oklch(0.556 0 0);
-  --chart-3: oklch(0.439 0 0);
-  --chart-4: oklch(0.371 0 0);
-  --chart-5: oklch(0.269 0 0);
+  --popover-foreground: oklch(0.17 0.015 220);
+  --primary: oklch(0.52 0.1 195);
+  --primary-foreground: oklch(0.99 0.005 195);
+  --secondary: oklch(0.96 0.006 200);
+  --secondary-foreground: oklch(0.28 0.03 205);
+  --muted: oklch(0.96 0.006 200);
+  --muted-foreground: oklch(0.52 0.02 215);
+  --accent: oklch(0.95 0.012 195);
+  --accent-foreground: oklch(0.28 0.04 200);
+  /* Aligned to the status critical (#d03b3b) so a form error and an
+     over-capacity alert don't read as two unrelated reds. */
+  --destructive: oklch(0.55 0.19 25);
+  --border: oklch(0.91 0.007 210);
+  --input: oklch(0.91 0.007 210);
+  --ring: oklch(0.52 0.1 195);
+  /* Categorical ramp (dataviz reference order, yellow/red omitted so a series
+     can never impersonate a status). Validated: ALL CHECKS PASS both modes. */
+  --chart-1: #2a78d6;
+  --chart-2: #1baf7a;
+  --chart-3: #4a3aa7;
+  --chart-4: #e87ba4;
+  --chart-5: #008300;
   --radius: 0.625rem;
-  --sidebar: oklch(0.985 0 0);
-  --sidebar-foreground: oklch(0.145 0 0);
-  --sidebar-primary: oklch(0.205 0 0);
-  --sidebar-primary-foreground: oklch(0.985 0 0);
-  --sidebar-accent: oklch(0.97 0 0);
-  --sidebar-accent-foreground: oklch(0.205 0 0);
-  --sidebar-border: oklch(0.922 0 0);
-  --sidebar-ring: oklch(0.708 0 0);
+  --sidebar: oklch(0.982 0.004 200);
+  --sidebar-foreground: oklch(0.17 0.015 220);
+  --sidebar-primary: oklch(0.52 0.1 195);
+  --sidebar-primary-foreground: oklch(0.99 0.005 195);
+  --sidebar-accent: oklch(0.95 0.012 195);
+  --sidebar-accent-foreground: oklch(0.28 0.04 200);
+  --sidebar-border: oklch(0.91 0.007 210);
+  --sidebar-ring: oklch(0.52 0.1 195);
 }
 
+/*
+ * Dark is a cool charcoal, not black — pure #000 with grey text is exactly the
+ * "old school terminal" look we're moving away from. Steps are selected for the
+ * dark surface, not an automatic inversion of light.
+ */
 .dark {
-  --background: oklch(0.145 0 0);
-  --foreground: oklch(0.985 0 0);
-  --card: oklch(0.205 0 0);
-  --card-foreground: oklch(0.985 0 0);
-  --popover: oklch(0.205 0 0);
-  --popover-foreground: oklch(0.985 0 0);
-  --primary: oklch(0.922 0 0);
-  --primary-foreground: oklch(0.205 0 0);
-  --secondary: oklch(0.269 0 0);
-  --secondary-foreground: oklch(0.985 0 0);
-  --muted: oklch(0.269 0 0);
-  --muted-foreground: oklch(0.708 0 0);
-  --accent: oklch(0.269 0 0);
-  --accent-foreground: oklch(0.985 0 0);
-  --destructive: oklch(0.704 0.191 22.216);
-  --border: oklch(1 0 0 / 10%);
-  --input: oklch(1 0 0 / 15%);
-  --ring: oklch(0.556 0 0);
-  --chart-1: oklch(0.87 0 0);
-  --chart-2: oklch(0.556 0 0);
-  --chart-3: oklch(0.439 0 0);
-  --chart-4: oklch(0.371 0 0);
-  --chart-5: oklch(0.269 0 0);
-  --sidebar: oklch(0.205 0 0);
-  --sidebar-foreground: oklch(0.985 0 0);
-  --sidebar-primary: oklch(0.488 0.243 264.376);
-  --sidebar-primary-foreground: oklch(0.985 0 0);
-  --sidebar-accent: oklch(0.269 0 0);
-  --sidebar-accent-foreground: oklch(0.985 0 0);
-  --sidebar-border: oklch(1 0 0 / 10%);
-  --sidebar-ring: oklch(0.556 0 0);
+  --background: oklch(0.19 0.012 215);
+  --foreground: oklch(0.96 0.004 200);
+  --card: oklch(0.23 0.014 215);
+  --card-foreground: oklch(0.96 0.004 200);
+  --popover: oklch(0.23 0.014 215);
+  --popover-foreground: oklch(0.96 0.004 200);
+  --primary: oklch(0.72 0.11 190);
+  --primary-foreground: oklch(0.18 0.02 210);
+  --secondary: oklch(0.26 0.014 215);
+  --secondary-foreground: oklch(0.96 0.004 200);
+  --muted: oklch(0.26 0.014 215);
+  --muted-foreground: oklch(0.7 0.02 210);
+  --accent: oklch(0.28 0.02 205);
+  --accent-foreground: oklch(0.96 0.004 200);
+  --destructive: oklch(0.65 0.18 25);
+  --border: oklch(0.3 0.012 215);
+  --input: oklch(0.32 0.014 215);
+  --ring: oklch(0.72 0.11 190);
+  /* Same hues, stepped for the dark surface — all clear 3:1 there. */
+  --chart-1: #3987e5;
+  --chart-2: #199e70;
+  --chart-3: #9085e9;
+  --chart-4: #d55181;
+  --chart-5: #008300;
+  --sidebar: oklch(0.17 0.014 215);
+  --sidebar-foreground: oklch(0.96 0.004 200);
+  --sidebar-primary: oklch(0.72 0.11 190);
+  --sidebar-primary-foreground: oklch(0.18 0.02 210);
+  --sidebar-accent: oklch(0.28 0.02 205);
+  --sidebar-accent-foreground: oklch(0.96 0.004 200);
+  --sidebar-border: oklch(0.3 0.012 215);
+  --sidebar-ring: oklch(0.72 0.11 190);
 }
 
 @layer base {

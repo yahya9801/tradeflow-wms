@@ -16,6 +16,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { useSession } from "@/components/session-provider";
 import { DevUserSwitcher } from "@/components/layout/dev-user-switcher";
+import { ThemeToggle } from "@/components/layout/theme-toggle";
 import { signOut } from "@/app/login/actions";
 import type { AppRole } from "@/lib/permissions";
 
@@ -50,6 +51,7 @@ export function TopBar({ leftSlot }: { leftSlot?: ReactNode }) {
       <div className="flex-1" />
 
       {isDev ? <DevUserSwitcher /> : null}
+      <ThemeToggle />
 
       <DropdownMenu>
         <DropdownMenuTrigger
