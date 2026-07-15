@@ -6,6 +6,7 @@ import { Package } from "lucide-react";
 
 import { cn } from "@/lib/utils";
 import { navGroups } from "@/lib/nav";
+import { usePermissions } from "@/components/session-provider";
 
 export function isActive(pathname: string, href: string) {
   return pathname === href || pathname.startsWith(href + "/");
@@ -17,6 +18,12 @@ export function isActive(pathname: string, href: string) {
  */
 export function SidebarNav({ onNavigate }: { onNavigate?: () => void }) {
   const pathname = usePathname();
+  const { can } = usePermissions();
+
+  // Cosmetic only — the server gates each route regardless of what's shown.
+  const visibleGroups = navGroups
+    .map((group) => ({ ...group, items: group.items.filter((item) => can(item.capability)) }))
+    .filter((group) => group.items.length > 0);
 
   return (
     <div className="flex h-full flex-col gap-1">
@@ -35,7 +42,7 @@ export function SidebarNav({ onNavigate }: { onNavigate?: () => void }) {
       </Link>
 
       <nav className="flex-1 space-y-5 overflow-y-auto px-2 py-2">
-        {navGroups.map((group) => (
+        {visibleGroups.map((group) => (
           <div key={group.label}>
             <p className="px-3 pb-1 text-xs font-medium uppercase tracking-wider text-muted-foreground">
               {group.label}
