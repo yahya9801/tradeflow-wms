@@ -5,7 +5,7 @@ import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
 import { requireCapability } from "@/lib/auth";
 import { writeAudit } from "@/lib/audit";
-import { lotSchema } from "@/lib/schemas/lot";
+import { lotFormToInput, lotSchema } from "@/lib/schemas/lot";
 
 export type LotActionState = {
   error: string | null;
@@ -48,27 +48,7 @@ export async function saveLot(_prev: LotActionState, formData: FormData): Promis
     currentStatus = existing.status;
   }
 
-  // An unmounted input is absent from FormData, so .get() returns null — and
-  // Zod's .optional() accepts undefined but rejects null. Normalize first, or
-  // the form silently fails to save whenever a direction-specific field is
-  // hidden.
-  const f = (key: string) => formData.get(key) ?? undefined;
-
-  const parsed = lotSchema.safeParse({
-    direction: f("direction"),
-    commodity_id: f("commodity_id"),
-    client_id: f("client_id"),
-    quantity_mt: f("quantity_mt"),
-    status: currentStatus,
-    origin_country: f("origin_country"),
-    destination_country: f("destination_country"),
-    vessel_name: f("vessel_name"),
-    bl_number: f("bl_number"),
-    export_ref: f("export_ref"),
-    payment_terms: f("payment_terms"),
-    eta: f("eta"),
-    notes: f("notes"),
-  });
+  const parsed = lotSchema.safeParse(lotFormToInput(formData, currentStatus));
   if (!parsed.success) return { error: null, fieldErrors: zodFieldErrors(parsed.error.issues) };
 
   const v = parsed.data;

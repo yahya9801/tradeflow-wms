@@ -51,3 +51,33 @@ export const lotSchema = z
   });
 
 export type LotInput = z.infer<typeof lotSchema>;
+
+/**
+ * Maps a submitted form into schema input.
+ *
+ * An unmounted input is absent from FormData, so .get() returns null — and Zod's
+ * .optional() accepts undefined but rejects null. Normalizing here (rather than
+ * at each call site) is what stops the form silently failing to save whenever a
+ * direction-specific field is hidden.
+ *
+ * `status` is passed in by the server, never read from the form: a client could
+ * otherwise post status=pending on an in-transit import to dodge the B/L rule.
+ */
+export function lotFormToInput(formData: FormData, status: string) {
+  const f = (key: string) => formData.get(key) ?? undefined;
+  return {
+    direction: f("direction"),
+    commodity_id: f("commodity_id"),
+    client_id: f("client_id"),
+    quantity_mt: f("quantity_mt"),
+    status,
+    origin_country: f("origin_country"),
+    destination_country: f("destination_country"),
+    vessel_name: f("vessel_name"),
+    bl_number: f("bl_number"),
+    export_ref: f("export_ref"),
+    payment_terms: f("payment_terms"),
+    eta: f("eta"),
+    notes: f("notes"),
+  };
+}

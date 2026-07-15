@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { lotSchema } from "./lot";
+import { lotSchema, lotFormToInput } from "./lot";
 
 const base = {
   direction: "import",
@@ -61,34 +61,54 @@ describe("lotSchema", () => {
     expect(lotSchema.safeParse({ ...base, client_id: "12345" }).success).toBe(false);
   });
 
-  // Regression: the export branch of the form unmounts the import-only inputs
-  // (and vice versa), so those keys are absent from FormData entirely — not
-  // merely empty. The caller must normalize absent keys to undefined before
-  // parsing, since Zod's .optional() rejects null but accepts undefined.
-  it("accepts an export payload with the import-only fields absent", () => {
-    const r = lotSchema.safeParse({
-      direction: "export",
-      commodity_id: "3f2504e0-4f89-41d3-9a0c-0305e82c3301",
-      client_id: "9c858901-8a57-4791-81fe-4c455b099bc9",
-      quantity_mt: "500",
-      status: "pending",
-      destination_country: "Brazil",
-      payment_terms: "TT",
-      // origin_country / vessel_name / bl_number deliberately absent
-    });
+});
+
+const COMMODITY = "3f2504e0-4f89-41d3-9a0c-0305e82c3301";
+const CLIENT = "9c858901-8a57-4791-81fe-4c455b099bc9";
+
+describe("lotFormToInput", () => {
+  // Regression: an unmounted input is absent from FormData, so .get() returns
+  // null. Zod's .optional() rejects null, so without normalization the form
+  // could never save — in either direction — and failed silently.
+  it("parses an export form where the import-only inputs were never mounted", () => {
+    const fd = new FormData();
+    fd.set("direction", "export");
+    fd.set("commodity_id", COMMODITY);
+    fd.set("client_id", CLIENT);
+    fd.set("quantity_mt", "500");
+    fd.set("destination_country", "Brazil");
+    fd.set("export_ref", "EXP-123456");
+    fd.set("payment_terms", "TT");
+    // origin_country / vessel_name / bl_number are absent: not rendered.
+
+    const r = lotSchema.safeParse(lotFormToInput(fd, "pending"));
     expect(r.success).toBe(true);
   });
 
-  it("accepts an import payload with the export-only fields absent", () => {
-    const r = lotSchema.safeParse({
-      direction: "import",
-      commodity_id: "3f2504e0-4f89-41d3-9a0c-0305e82c3301",
-      client_id: "9c858901-8a57-4791-81fe-4c455b099bc9",
-      quantity_mt: "500",
-      status: "pending",
-      origin_country: "India",
-      // destination_country / export_ref / payment_terms deliberately absent
-    });
+  it("parses an import form where the export-only inputs were never mounted", () => {
+    const fd = new FormData();
+    fd.set("direction", "import");
+    fd.set("commodity_id", COMMODITY);
+    fd.set("client_id", CLIENT);
+    fd.set("quantity_mt", "500");
+    fd.set("origin_country", "India");
+    fd.set("vessel_name", "MV Test 1");
+    // destination_country / export_ref / payment_terms are absent.
+
+    const r = lotSchema.safeParse(lotFormToInput(fd, "pending"));
     expect(r.success).toBe(true);
+  });
+
+  it("never takes status from the form", () => {
+    const fd = new FormData();
+    fd.set("direction", "import");
+    fd.set("commodity_id", COMMODITY);
+    fd.set("client_id", CLIENT);
+    fd.set("quantity_mt", "500");
+    fd.set("origin_country", "India");
+    fd.set("status", "pending"); // a malicious client trying to dodge the B/L rule
+    // The server says this lot is in transit, so the B/L rule must still bite.
+    const r = lotSchema.safeParse(lotFormToInput(fd, "in_transit"));
+    expect(r.success).toBe(false);
   });
 });
