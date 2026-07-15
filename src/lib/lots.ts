@@ -109,6 +109,11 @@ export async function listLots(opts: {
     const raw = opts.q.trim();
     const term = `%${raw}%`;
 
+    // PostgREST parses .or() as a comma-separated logic tree, so a comma or
+    // paren in the raw term would corrupt it. Double-quoting makes reserved
+    // characters literal; inner quotes/backslashes must be escaped first.
+    const quoted = `"%${raw.replace(/\\/g, "\\\\").replace(/"/g, '\\"')}%"`;
+
     // PostgREST cannot .or() across two different embedded resources
     // (commodities.name / clients.name) in one logic tree — verified against
     // the live DB, it throws "failed to parse logic tree". Work around this
@@ -120,7 +125,7 @@ export async function listLots(opts: {
       supabase.from("clients").select("id").ilike("name", term),
     ]);
 
-    const ors = [`lot_number.ilike.${term}`];
+    const ors = [`lot_number.ilike.${quoted}`];
     if (cMatches?.length) ors.push(`commodity_id.in.(${cMatches.map((c) => c.id).join(",")})`);
     if (clMatches?.length) ors.push(`client_id.in.(${clMatches.map((c) => c.id).join(",")})`);
 
