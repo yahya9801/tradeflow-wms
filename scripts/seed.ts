@@ -87,14 +87,17 @@ async function main() {
     ])
     .select();
   if (whErr) throw whErr;
+  // Sheds allocate ~90% of the facility's rated capacity; the remainder is
+  // unallocated space (aisles, handling, staging), which the UI shows.
   const shedRows: Array<{ warehouse_id: string; name: string; capacity_mt: number }> = [];
   for (const wh of whRows!) {
     const n = faker.number.int({ min: 3, max: 4 });
+    const base = Math.floor((Number(wh.capacity_mt) * 0.9) / n);
     for (let i = 1; i <= n; i++) {
       shedRows.push({
         warehouse_id: wh.id,
         name: `Shed ${String.fromCharCode(64 + i)}`,
-        capacity_mt: faker.number.int({ min: 1500, max: 3000 }),
+        capacity_mt: base + faker.number.int({ min: -200, max: 200 }),
       });
     }
   }
@@ -113,18 +116,38 @@ async function main() {
   const buyers = clientRows!.filter((c) => c.type === "buyer");
 
   // 7. ~100 lots across all statuses/directions
+  //
+  // Storage is capacity-aware: a lot is only placed in a shed that actually has
+  // room for it, so a shed can never hold more than it physically can. A lot
+  // that fits nowhere stays 'received' — arrived at the facility, awaiting
+  // storage — which is exactly what would happen on a full site.
+  const shedLoad = new Map<string, number>(sheds!.map((s) => [s.id, 0]));
+  const shedCap = new Map<string, number>(sheds!.map((s) => [s.id, Number(s.capacity_mt)]));
+
+  function placeLot(quantity: number) {
+    const fitting = sheds!.filter((s) => shedLoad.get(s.id)! + quantity <= shedCap.get(s.id)!);
+    if (fitting.length === 0) return null;
+    const shed = faker.helpers.arrayElement(fitting);
+    shedLoad.set(shed.id, shedLoad.get(shed.id)! + quantity);
+    return shed;
+  }
+
   const lots = Array.from({ length: 100 }, (_, i) => {
     const direction = faker.helpers.arrayElement(["import", "export"] as const);
-    const status = LOT_STATUSES[i % LOT_STATUSES.length];
+    let status: (typeof LOT_STATUSES)[number] = LOT_STATUSES[i % LOT_STATUSES.length];
     const commodity = faker.helpers.arrayElement(commodities!);
     const counterparty =
       direction === "import" ? faker.helpers.arrayElement(suppliers) : faker.helpers.arrayElement(buyers);
-    const shed = status === "stored" ? faker.helpers.arrayElement(sheds!) : null;
+    const quantity_mt = faker.number.int({ min: 100, max: 1500 });
+
+    const shed = status === "stored" ? placeLot(quantity_mt) : null;
+    if (status === "stored" && !shed) status = "received"; // no room anywhere
+
     return {
       direction,
       commodity_id: commodity.id,
       client_id: counterparty.id,
-      quantity_mt: faker.number.int({ min: 100, max: 1500 }),
+      quantity_mt,
       warehouse_id: shed ? shed.warehouse_id : faker.helpers.arrayElement(whRows!).id,
       shed_id: shed?.id ?? null,
       status,
@@ -147,6 +170,49 @@ async function main() {
   });
   const { data: lotRows, error: lotErr } = await db.from("lots").insert(lots).select();
   if (lotErr) throw lotErr;
+
+  // 7b. Shed stays (lot_movements).
+  //
+  // The sync trigger already opened a stay for every stored lot at now();
+  // backdate those to the lot's arrival. Dispatched/delivered lots left storage
+  // before this table existed, so their history is SYNTHESIZED — the shed they
+  // actually occupied was never recorded. Each synthesized stay is confined to
+  // a shed of the lot's own warehouse, so a lot never appears in the history of
+  // a warehouse it was never associated with.
+  const shedsByWarehouse = new Map<string, typeof sheds>();
+  for (const shed of sheds!) {
+    const list = shedsByWarehouse.get(shed.warehouse_id) ?? [];
+    list.push(shed);
+    shedsByWarehouse.set(shed.warehouse_id, list as typeof sheds);
+  }
+
+  for (const lot of lotRows!.filter((l) => l.status === "stored" && l.arrival_date)) {
+    const { error } = await db
+      .from("lot_movements")
+      .update({ placed_at: new Date(lot.arrival_date).toISOString() })
+      .eq("lot_id", lot.id)
+      .is("removed_at", null);
+    if (error) throw new Error(`backdate stay ${lot.lot_number}: ${error.message}`);
+  }
+
+  const closedStays = lotRows!
+    .filter((l) => ["dispatched", "delivered"].includes(l.status))
+    .map((lot) => {
+      const candidates = shedsByWarehouse.get(lot.warehouse_id) ?? sheds!;
+      const shed = faker.helpers.arrayElement(candidates!);
+      const removed = lot.dispatch_date ? new Date(lot.dispatch_date) : faker.date.recent({ days: 10 });
+      const placed = lot.arrival_date ? new Date(lot.arrival_date) : faker.date.recent({ days: 40 });
+      // Guard the check constraint: placed_at must not be after removed_at.
+      const placedAt = placed <= removed ? placed : new Date(removed.getTime() - 86_400_000 * 7);
+      return {
+        lot_id: lot.id,
+        shed_id: shed.id,
+        placed_at: placedAt.toISOString(),
+        removed_at: removed.toISOString(),
+      };
+    });
+  const { error: mvErr } = await db.from("lot_movements").insert(closedStays);
+  if (mvErr) throw mvErr;
 
   // 8. invoices AR + AP (≈70% of lots)
   let seqNo = 1000;
@@ -194,7 +260,7 @@ async function main() {
 
   // summary
   const counts = await Promise.all(
-    ["warehouses", "sheds", "commodities", "clients", "lots", "invoices", "exceptions"].map(async (t) => {
+    ["warehouses", "sheds", "commodities", "clients", "lots", "lot_movements", "invoices", "exceptions"].map(async (t) => {
       const { count } = await db.from(t).select("*", { count: "exact", head: true });
       return `${t}: ${count}`;
     })
