@@ -18,12 +18,24 @@ export default async function LotsPage({
   if (!gate.allowed) return <BlockedScreen required="view_operations" role={gate.role} />;
 
   const sp = await searchParams;
-  const page = Number(sp.page ?? 1) || 1;
-  const { rows, total, statusCounts } = await listLots({
-    q: sp.q, direction: sp.direction, status: sp.status, page,
+  const requested = Number(sp.page ?? 1);
+  const requestedPage = Number.isFinite(requested) ? Math.max(1, Math.trunc(requested)) : 1;
+
+  const initial = await listLots({
+    q: sp.q, direction: sp.direction, status: sp.status, page: requestedPage,
   });
 
-  const pages = Math.max(1, Math.ceil(total / PAGE_SIZE));
+  const pages = Math.max(1, Math.ceil(initial.total / PAGE_SIZE));
+  const page = Math.min(requestedPage, pages);
+
+  // listLots clamps the low end internally but not the high end, so an
+  // out-of-range page (e.g. ?page=999 on a 4-page result) comes back with
+  // empty rows even though total is nonzero. Refetch with the clamped page
+  // so the rendered rows always match the rendered "Page X of Y" header.
+  const { rows, total, statusCounts } =
+    page === requestedPage
+      ? initial
+      : await listLots({ q: sp.q, direction: sp.direction, status: sp.status, page });
   const qs = (p: number) => {
     const next = new URLSearchParams();
     if (sp.q) next.set("q", sp.q);
