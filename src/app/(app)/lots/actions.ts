@@ -6,6 +6,7 @@ import { createClient } from "@/lib/supabase/server";
 import { requireCapability } from "@/lib/auth";
 import { writeAudit } from "@/lib/audit";
 import { lotFormToInput, lotSchema } from "@/lib/schemas/lot";
+import { allowedTransitions, type LotStatus } from "@/lib/lot-status";
 
 export type LotActionState = {
   error: string | null;
@@ -128,4 +129,93 @@ export async function autoResolveFieldExceptions(lotId: string, userId: string):
   for (const e of closed ?? []) {
     await writeAudit("resolve", "exception", e.id, { type: e.type, auto: true, lot_id: lotId });
   }
+}
+
+/**
+ * The database trigger is the enforcement mechanism; this check exists to give
+ * a clean message and to stop an illegal move before it reaches SQL.
+ */
+export async function transitionLot(_prev: LotActionState, formData: FormData): Promise<LotActionState> {
+  const gate = await requireCapability("manage_lots");
+  if (!gate.allowed) return { error: "You do not have permission to change lot status." };
+
+  const id = String(formData.get("id") ?? "");
+  const to = String(formData.get("to") ?? "") as LotStatus;
+  const shedId = String(formData.get("shed_id") ?? "");
+  if (!id || !to) return { error: "Missing lot or target status." };
+
+  const supabase = await createClient();
+  const { data: lot } = await supabase
+    .from("lots")
+    .select("id, lot_number, status, direction, bl_number, quantity_mt, shed_id, warehouse_id")
+    .eq("id", id)
+    .maybeSingle();
+  if (!lot) return { error: "Lot not found." };
+
+  const isOwner = gate.session.profile.role === "owner";
+  if (!allowedTransitions(lot.status as LotStatus, isOwner).includes(to)) {
+    return { error: `${lot.lot_number} cannot move from ${lot.status} to ${to}.` };
+  }
+
+  // CLAUDE.md: an import in transit must have its B/L recorded.
+  if (to === "in_transit" && lot.direction === "import" && !lot.bl_number) {
+    return { error: "Record the B/L number before marking this import in transit." };
+  }
+
+  const patch: Record<string, unknown> = { status: to, updated_at: new Date().toISOString() };
+
+  if (to === "stored") {
+    if (!shedId) return { error: "Choose a shed to store this lot in." };
+    const { data: shed } = await supabase
+      .from("sheds")
+      .select("id, warehouse_id")
+      .eq("id", shedId)
+      .maybeSingle();
+    if (!shed) return { error: "That shed no longer exists." };
+    patch.shed_id = shedId;
+    patch.warehouse_id = shed.warehouse_id;
+    patch.arrival_date = patch.arrival_date ?? new Date().toISOString().slice(0, 10);
+  }
+  if (to === "dispatched") patch.dispatch_date = new Date().toISOString().slice(0, 10);
+
+  const { error } = await supabase.from("lots").update(patch).eq("id", id);
+  if (error) {
+    // The trigger's message is written for humans — surface it as-is rather
+    // than a raw Postgres error.
+    return { error: error.message.replace(/^.*?violates.*?:\s*/i, "") };
+  }
+
+  await writeAudit("transition", "lot", id, { from: lot.status, to, shed_id: shedId || null });
+
+  revalidatePath(`/lots/${id}`);
+  revalidatePath("/lots");
+  revalidatePath("/warehouses");
+  return { error: null, ok: true };
+}
+
+export async function resolveException(_prev: LotActionState, formData: FormData): Promise<LotActionState> {
+  const gate = await requireCapability("manage_lots");
+  if (!gate.allowed) return { error: "You do not have permission to resolve exceptions." };
+
+  const id = String(formData.get("id") ?? "");
+  const lotId = String(formData.get("lot_id") ?? "");
+  const note = String(formData.get("note") ?? "").trim();
+  if (!note) return { error: null, fieldErrors: { note: "Add a note explaining the resolution." } };
+
+  const supabase = await createClient();
+  const { error } = await supabase
+    .from("exceptions")
+    .update({
+      status: "resolved",
+      note,
+      resolved_by: gate.session.user.id,
+      resolved_at: new Date().toISOString(),
+    })
+    .eq("id", id);
+  if (error) return { error: error.message };
+
+  await writeAudit("resolve", "exception", id, { note, auto: false, lot_id: lotId });
+
+  revalidatePath(`/lots/${lotId}`);
+  return { error: null, ok: true };
 }
