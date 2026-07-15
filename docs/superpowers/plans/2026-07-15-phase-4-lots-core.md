@@ -1179,14 +1179,29 @@ export async function saveLot(_prev: LotActionState, formData: FormData): Promis
   if (!gate.allowed) return { error: "You do not have permission to edit lots." };
 
   const id = String(formData.get("id") ?? "");
+  const supabase = await createClient();
+
+  // Status is NEVER read from the form. A client could post status=pending on
+  // an in-transit import to dodge the B/L requirement — defeating the rule this
+  // phase exists to enforce. New lots are pending by definition; edits use
+  // whatever the database currently says.
+  let currentStatus = "pending";
+  if (id) {
+    const { data: existing } = await supabase
+      .from("lots")
+      .select("status")
+      .eq("id", id)
+      .maybeSingle();
+    if (!existing) return { error: "Lot not found." };
+    currentStatus = existing.status;
+  }
 
   const parsed = lotSchema.safeParse({
     direction: formData.get("direction"),
     commodity_id: formData.get("commodity_id"),
     client_id: formData.get("client_id"),
     quantity_mt: formData.get("quantity_mt"),
-    // New lots are always pending; edits keep their current status.
-    status: formData.get("status") ?? "pending",
+    status: currentStatus,
     origin_country: formData.get("origin_country"),
     destination_country: formData.get("destination_country"),
     vessel_name: formData.get("vessel_name"),
@@ -1213,8 +1228,6 @@ export async function saveLot(_prev: LotActionState, formData: FormData): Promis
     eta: nz(v.eta),
     notes: nz(v.notes),
   };
-
-  const supabase = await createClient();
 
   if (id) {
     const { data: before } = await supabase.from("lots").select("*").eq("id", id).maybeSingle();
@@ -1361,8 +1374,10 @@ export function LotForm({
 
   return (
     <form action={formAction} className="flex flex-col gap-6">
+      {/* No status field, hidden or otherwise: the server reads the lot's
+          current status from the database. Sending it from here would let a
+          client dodge the conditional B/L rule. */}
       {initial.id ? <input type="hidden" name="id" value={initial.id} /> : null}
-      <input type="hidden" name="status" value={v.status} />
       <input type="hidden" name="direction" value={v.direction} />
 
       <div className="flex items-center gap-1 rounded-lg border p-0.5 w-fit">
@@ -2442,4 +2457,5 @@ git commit -m "test(lots): Phase 4 acceptance verification"
 - **Base UI traps:** Dialog uses `render`-free controlled `open`; links use `buttonVariants`, never `Button render={<Link/>}`; no `DropdownMenuLabel` outside a Group.
 - **Phase 3 lessons carried:** form inputs controlled (React 19 resets uncontrolled forms); Server Actions gate on `requireCapability` because RLS reports zero-rows-affected rather than an error on UPDATE.
 - **Fixed during review:** Task 8 Step 1 originally re-entered the auth gate inside `autoResolveFieldExceptions` to get a user id — convoluted and it would double-check permissions. Changed to pass `userId` in as a parameter from `saveLot`.
+- **Fixed during pre-flight scan (security):** `saveLot` originally took `status` from a hidden form field and fed it to Zod. A client could post `status=pending` on an in-transit import and skip the "B/L required" rule entirely — defeating the business rule this phase exists to enforce. The server now reads the current status from the database (`pending` for new lots), and the form has no status field at all. This is the same lesson as the RLS/`requireCapability` one: never let the client supply the value a security decision is made on.
 - **Known risk:** the `listLots` search uses PostgREST `.or()` across embedded resources (`commodities.name.ilike`). If that syntax misbehaves against the view, fall back to searching `lot_number` only and filtering joined names in SQL via an RPC — verify in Task 6 Step 4 before assuming it works.
