@@ -25,10 +25,11 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="en">
-      <body
-        className={`${geistSans.variable} ${geistMono.variable} antialiased`}
-      >
+    // Font variables live on <html>: Tailwind's preflight sets font-family at
+    // the html scope, so declaring them on <body> left it resolving an
+    // undefined var and silently falling back to the browser's serif default.
+    <html lang="en" className={`${geistSans.variable} ${geistMono.variable}`}>
+      <body className="antialiased">
         <TooltipProvider>{children}</TooltipProvider>
       </body>
     </html>
