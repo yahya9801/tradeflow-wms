@@ -1,0 +1,10 @@
+create type app_role as enum ('owner','management','warehouse','finance');
+create type lot_direction as enum ('import','export');
+create type lot_status as enum ('pending','in_transit','received','stored','dispatched','delivered');
+create type client_type as enum ('buyer','supplier','both');
+create type invoice_type as enum ('receivable','payable');
+create type invoice_status as enum ('pending','partial','paid');
+create type payment_terms as enum ('LC','TT','CAD','DA');
+create type exception_type as enum ('weight_shortage','missing_bl','missing_payment_terms','compliance_block','overdue_invoice','low_capacity');
+create type exception_severity as enum ('critical','warning','notice');
+create type exception_status as enum ('open','resolved');
