@@ -13,8 +13,8 @@ const optionalText = z.string().trim().max(240).optional().default("");
 export const lotSchema = z
   .object({
     direction: z.enum(["import", "export"]),
-    commodity_id: z.string().regex(/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i, "Select a commodity"),
-    client_id: z.string().regex(/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i, "Select a counterparty"),
+    commodity_id: z.string().uuid("Select a commodity"),
+    client_id: z.string().uuid("Select a counterparty"),
     quantity_mt: z.coerce
       .number({ message: "Quantity must be a number" })
       .positive("Quantity must be greater than 0")

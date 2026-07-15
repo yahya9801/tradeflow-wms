@@ -3,8 +3,8 @@ import { lotSchema } from "./lot";
 
 const base = {
   direction: "import",
-  commodity_id: "11111111-1111-1111-1111-111111111111",
-  client_id: "22222222-2222-2222-2222-222222222222",
+  commodity_id: "3f2504e0-4f89-41d3-9a0c-0305e82c3301",
+  client_id: "9c858901-8a57-4791-81fe-4c455b099bc9",
   quantity_mt: "500",
   status: "pending",
   origin_country: "India",
@@ -54,5 +54,10 @@ describe("lotSchema", () => {
 
   it("does not require payment terms for imports", () => {
     expect(lotSchema.safeParse({ ...base, payment_terms: "" }).success).toBe(true);
+  });
+
+  it("rejects an id that is not a uuid", () => {
+    expect(lotSchema.safeParse({ ...base, commodity_id: "not-a-uuid" }).success).toBe(false);
+    expect(lotSchema.safeParse({ ...base, client_id: "12345" }).success).toBe(false);
   });
 });
