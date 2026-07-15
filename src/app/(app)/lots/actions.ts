@@ -48,20 +48,26 @@ export async function saveLot(_prev: LotActionState, formData: FormData): Promis
     currentStatus = existing.status;
   }
 
+  // An unmounted input is absent from FormData, so .get() returns null — and
+  // Zod's .optional() accepts undefined but rejects null. Normalize first, or
+  // the form silently fails to save whenever a direction-specific field is
+  // hidden.
+  const f = (key: string) => formData.get(key) ?? undefined;
+
   const parsed = lotSchema.safeParse({
-    direction: formData.get("direction"),
-    commodity_id: formData.get("commodity_id"),
-    client_id: formData.get("client_id"),
-    quantity_mt: formData.get("quantity_mt"),
+    direction: f("direction"),
+    commodity_id: f("commodity_id"),
+    client_id: f("client_id"),
+    quantity_mt: f("quantity_mt"),
     status: currentStatus,
-    origin_country: formData.get("origin_country"),
-    destination_country: formData.get("destination_country"),
-    vessel_name: formData.get("vessel_name"),
-    bl_number: formData.get("bl_number"),
-    export_ref: formData.get("export_ref"),
-    payment_terms: formData.get("payment_terms"),
-    eta: formData.get("eta"),
-    notes: formData.get("notes"),
+    origin_country: f("origin_country"),
+    destination_country: f("destination_country"),
+    vessel_name: f("vessel_name"),
+    bl_number: f("bl_number"),
+    export_ref: f("export_ref"),
+    payment_terms: f("payment_terms"),
+    eta: f("eta"),
+    notes: f("notes"),
   });
   if (!parsed.success) return { error: null, fieldErrors: zodFieldErrors(parsed.error.issues) };
 
