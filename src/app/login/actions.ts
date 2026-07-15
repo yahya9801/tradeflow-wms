@@ -32,3 +32,24 @@ export async function signOut(): Promise<void> {
   revalidatePath("/", "layout");
   redirect("/login");
 }
+
+/**
+ * Dev-only: sign in as a seeded test user to exercise RBAC quickly.
+ * Hard-fails in production so it can never become a login bypass.
+ */
+export async function devSignInAs(email: string): Promise<void> {
+  if (process.env.NODE_ENV === "production") {
+    throw new Error("devSignInAs is disabled in production");
+  }
+
+  const supabase = await createClient();
+  await supabase.auth.signOut();
+  const { error } = await supabase.auth.signInWithPassword({
+    email,
+    password: "TradeFlow!2026",
+  });
+  if (error) throw new Error(`dev sign-in failed: ${error.message}`);
+
+  revalidatePath("/", "layout");
+  redirect("/dashboard");
+}
