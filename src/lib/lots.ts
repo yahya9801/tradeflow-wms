@@ -106,15 +106,25 @@ export async function listLots(opts: {
   }
   if (opts.status) query = query.eq("status", opts.status);
   if (opts.q?.trim()) {
-    // Verified against the live DB: PostgREST rejects an .or() that mixes a
-    // base-table column with filters on two different embedded resources
-    // (commodities.name / clients.name) — it throws "failed to parse logic
-    // tree" for both service_role and anon keys. A single-resource .or() via
-    // referencedTable works, but there's no PostgREST syntax to OR across
-    // lot_number plus two different joined tables in one request. Documented
-    // fallback: search lot_number only. Searching by commodity/client name
-    // is not supported here.
-    query = query.ilike("lot_number", `%${opts.q.trim()}%`);
+    const raw = opts.q.trim();
+    const term = `%${raw}%`;
+
+    // PostgREST cannot .or() across two different embedded resources
+    // (commodities.name / clients.name) in one logic tree — verified against
+    // the live DB, it throws "failed to parse logic tree". Work around this
+    // by resolving name matches to ids first (cheap: ~10 commodities, ~80
+    // clients) and filtering on lots_view's own commodity_id/client_id
+    // columns instead, which are NOT embedded filters.
+    const [{ data: cMatches }, { data: clMatches }] = await Promise.all([
+      supabase.from("commodities").select("id").ilike("name", term),
+      supabase.from("clients").select("id").ilike("name", term),
+    ]);
+
+    const ors = [`lot_number.ilike.${term}`];
+    if (cMatches?.length) ors.push(`commodity_id.in.(${cMatches.map((c) => c.id).join(",")})`);
+    if (clMatches?.length) ors.push(`client_id.in.(${clMatches.map((c) => c.id).join(",")})`);
+
+    query = query.or(ors.join(","));
   }
 
   const from = (page - 1) * PAGE_SIZE;
