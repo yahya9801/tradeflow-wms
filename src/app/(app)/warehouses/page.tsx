@@ -5,6 +5,8 @@ import { OccupancyBar, OccupancyBadge, occupancyState } from "@/components/occup
 import { listWarehouses, getOccupancyThreshold } from "@/lib/warehouses";
 import { requireCapability } from "@/lib/auth";
 import { BlockedScreen } from "@/components/blocked-screen";
+import { can } from "@/lib/permissions";
+import { WarehouseDialog } from "./warehouse-dialog";
 
 const mt = (n: number) => `${n.toLocaleString("en-US", { maximumFractionDigits: 0 })} MT`;
 
@@ -16,11 +18,15 @@ export default async function WarehousesPage() {
 
   return (
     <div className="mx-auto flex max-w-5xl flex-col gap-6">
-      <div className="flex flex-col gap-1">
-        <h1 className="text-2xl font-semibold tracking-tight">Warehouses &amp; Sheds</h1>
-        <p className="text-sm text-muted-foreground">
-          Storage capacity and occupancy across facilities. Alerts at {threshold}% of shed capacity.
-        </p>
+      <div className="flex items-start justify-between gap-4">
+        <div className="flex flex-col gap-1">
+          <h1 className="text-2xl font-semibold tracking-tight">Warehouses &amp; Sheds</h1>
+          <p className="text-sm text-muted-foreground">
+            Storage capacity and occupancy across facilities. Alerts at {threshold}% of shed capacity.
+          </p>
+        </div>
+        {/* Cosmetic only — RLS refuses the write regardless of what's shown. */}
+        {can(gate.session.profile.role, "manage_users") ? <WarehouseDialog /> : null}
       </div>
 
       {warehouses.length === 0 ? (
