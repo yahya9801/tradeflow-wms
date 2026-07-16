@@ -245,18 +245,68 @@ async function main() {
   const { error: invErr } = await db.from("invoices").insert(invoices);
   if (invErr) throw invErr;
 
-  // 9. a few open exceptions on real lots
-  const sampleLots = faker.helpers.arrayElements(lotRows!, 6);
-  const excTypes = ["weight_shortage", "missing_bl", "missing_payment_terms", "compliance_block", "weight_shortage", "missing_bl"] as const;
-  const excSev = ["critical", "warning", "notice", "critical", "warning", "notice"] as const;
-  const exc = sampleLots.map((lot, i) => ({
-    lot_id: lot.id,
-    type: excTypes[i],
-    severity: excSev[i],
-    description: "Auto-flagged during intake; requires review.",
-    status: "open",
-  }));
-  await db.from("exceptions").insert(exc);
+  // 9. Open exceptions.
+  //
+  // Field-backed exceptions must be TRUE: the Phase 1 seed stamped types onto
+  // random lots without checking, so "missing_bl" sat on lots that had a B/L —
+  // exactly the demo bug this project exists to fix. Here we create the real
+  // violation first, then flag it, so "resolve = fill the field" is a genuine
+  // flow. weight_shortage/compliance_block are human-raised claims that aren't
+  // derivable from field state, so they stay as plain records.
+  const exceptions: Array<Record<string, unknown>> = [];
+
+  const inTransit = lotRows!.filter((l) => l.status === "in_transit").slice(0, 2);
+  for (const lot of inTransit) {
+    const { error } = await db.from("lots").update({ bl_number: null }).eq("id", lot.id);
+    if (error) throw new Error(`clear bl ${lot.lot_number}: ${error.message}`);
+    exceptions.push({
+      lot_id: lot.id,
+      type: "missing_bl",
+      severity: "warning",
+      description: "Bill of Lading not recorded for a shipment already in transit.",
+      status: "open",
+    });
+  }
+
+  const exportsNoTerms = lotRows!.filter((l) => l.direction === "export").slice(0, 2);
+  for (const lot of exportsNoTerms) {
+    const { error } = await db.from("lots").update({ payment_terms: null }).eq("id", lot.id);
+    if (error) throw new Error(`clear terms ${lot.lot_number}: ${error.message}`);
+    exceptions.push({
+      lot_id: lot.id,
+      type: "missing_payment_terms",
+      severity: "notice",
+      description: "Export lot has no agreed payment terms.",
+      status: "open",
+    });
+  }
+
+  // Human-raised claims — not derivable from field state.
+  const claimLots = faker.helpers.arrayElements(
+    lotRows!.filter((l) => ["received", "stored", "delivered"].includes(l.status)),
+    2,
+  );
+  if (claimLots[0]) {
+    exceptions.push({
+      lot_id: claimLots[0].id,
+      type: "weight_shortage",
+      severity: "critical",
+      description: "Weighbridge recorded 3.2 MT below the B/L quantity on intake.",
+      status: "open",
+    });
+  }
+  if (claimLots[1]) {
+    exceptions.push({
+      lot_id: claimLots[1].id,
+      type: "compliance_block",
+      severity: "critical",
+      description: "Phytosanitary certificate pending; goods held pending clearance.",
+      status: "open",
+    });
+  }
+
+  const { error: excErr } = await db.from("exceptions").insert(exceptions);
+  if (excErr) throw excErr;
 
   // summary
   const counts = await Promise.all(
