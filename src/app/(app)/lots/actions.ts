@@ -147,7 +147,7 @@ export async function transitionLot(_prev: LotActionState, formData: FormData): 
   const supabase = await createClient();
   const { data: lot } = await supabase
     .from("lots")
-    .select("id, lot_number, status, direction, bl_number, quantity_mt, shed_id, warehouse_id")
+    .select("id, lot_number, status, direction, bl_number, quantity_mt, shed_id, warehouse_id, arrival_date")
     .eq("id", id)
     .maybeSingle();
   if (!lot) return { error: "Lot not found." };
@@ -174,7 +174,9 @@ export async function transitionLot(_prev: LotActionState, formData: FormData): 
     if (!shed) return { error: "That shed no longer exists." };
     patch.shed_id = shedId;
     patch.warehouse_id = shed.warehouse_id;
-    patch.arrival_date = patch.arrival_date ?? new Date().toISOString().slice(0, 10);
+    // Keep the lot's existing arrival date if it has one (so an Owner stepping
+    // back to Stored doesn't reset it); otherwise record today.
+    patch.arrival_date = lot.arrival_date ?? new Date().toISOString().slice(0, 10);
   }
   if (to === "dispatched") patch.dispatch_date = new Date().toISOString().slice(0, 10);
 
