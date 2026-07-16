@@ -1,7 +1,7 @@
 import "server-only";
 
 import { createClient } from "@/lib/supabase/server";
-import type { LotStatus } from "@/lib/lot-status";
+import { LOT_STATUSES, type LotStatus } from "@/lib/lot-status";
 
 const num = (v: unknown): number => Number(v ?? 0);
 export const PAGE_SIZE = 25;
@@ -251,4 +251,66 @@ export async function listWarehousesWithSheds() {
         free_mt: num(s.capacity_mt) - num(s.stored_mt),
       })),
   }));
+}
+
+export type PipelineCard = {
+  id: string;
+  lot_number: string;
+  commodity: string;
+  client: string;
+  quantity_mt: number;
+  bags: number;
+};
+
+export type Pipeline = {
+  stats: { total: number; in_transit: number; stored: number; total_mt: number };
+  columns: Record<LotStatus, PipelineCard[]>;
+};
+
+/**
+ * All lots of one direction, grouped into a column per lifecycle status.
+ * Reads lots_view — no financial columns are selected, so this is safe for any
+ * operational role.
+ */
+export async function getPipeline(direction: "import" | "export"): Promise<Pipeline> {
+  const supabase = await createClient();
+  const { data, error } = await supabase
+    .from("lots_view")
+    .select("id, lot_number, status, quantity_mt, bags, commodities!inner(name), clients!inner(name)")
+    .eq("direction", direction)
+    .order("lot_number", { ascending: false });
+  if (error) throw new Error(`getPipeline: ${error.message}`);
+
+  type Row = {
+    id: string; lot_number: string; status: LotStatus; quantity_mt: unknown; bags: unknown;
+    commodities: { name: string }; clients: { name: string };
+  };
+
+  const columns = Object.fromEntries(
+    LOT_STATUSES.map((s) => [s, [] as PipelineCard[]]),
+  ) as Record<LotStatus, PipelineCard[]>;
+
+  let total_mt = 0;
+  for (const r of (data ?? []) as unknown as Row[]) {
+    const card: PipelineCard = {
+      id: r.id,
+      lot_number: r.lot_number,
+      commodity: r.commodities.name,
+      client: r.clients.name,
+      quantity_mt: num(r.quantity_mt),
+      bags: num(r.bags),
+    };
+    columns[r.status].push(card);
+    total_mt += card.quantity_mt;
+  }
+
+  return {
+    stats: {
+      total: data?.length ?? 0,
+      in_transit: columns.in_transit.length,
+      stored: columns.stored.length,
+      total_mt,
+    },
+    columns,
+  };
 }
