@@ -151,6 +151,20 @@ export function LotForm({
           <Input name="eta" type="date" value={v.eta} onChange={(e) => set("eta", e.target.value)} />
         </Field>
 
+        <Field label="Payment terms" error={state.fieldErrors?.payment_terms}>
+          <select
+            name="payment_terms"
+            value={v.payment_terms}
+            onChange={(e) => set("payment_terms", e.target.value)}
+            className="h-9 rounded-lg border bg-background px-3 text-sm outline-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50"
+          >
+            <option value="">Select terms</option>
+            {["LC", "TT", "CAD", "DA"].map((t) => (
+              <option key={t} value={t}>{t}</option>
+            ))}
+          </select>
+        </Field>
+
         {isImport ? (
           <>
             <Field label="Origin country">
@@ -194,19 +208,6 @@ export function LotForm({
                 value={v.export_ref}
                 onChange={(e) => set("export_ref", e.target.value)}
               />
-            </Field>
-            <Field label="Payment terms" error={state.fieldErrors?.payment_terms}>
-              <select
-                name="payment_terms"
-                value={v.payment_terms}
-                onChange={(e) => set("payment_terms", e.target.value)}
-                className="h-9 rounded-lg border bg-background px-3 text-sm outline-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50"
-              >
-                <option value="">Select terms</option>
-                {["LC", "TT", "CAD", "DA"].map((t) => (
-                  <option key={t} value={t}>{t}</option>
-                ))}
-              </select>
             </Field>
           </>
         )}

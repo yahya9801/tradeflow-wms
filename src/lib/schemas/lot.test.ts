@@ -99,6 +99,20 @@ describe("lotFormToInput", () => {
     expect(r.success).toBe(true);
   });
 
+  it("keeps payment terms on an import (they are not export-only)", () => {
+    const fd = new FormData();
+    fd.set("direction", "import");
+    fd.set("commodity_id", COMMODITY);
+    fd.set("client_id", CLIENT);
+    fd.set("quantity_mt", "500");
+    fd.set("origin_country", "India");
+    fd.set("payment_terms", "LC");
+
+    const r = lotSchema.safeParse(lotFormToInput(fd, "pending"));
+    expect(r.success).toBe(true);
+    if (r.success) expect(r.data.payment_terms).toBe("LC");
+  });
+
   it("never takes status from the form", () => {
     const fd = new FormData();
     fd.set("direction", "import");
