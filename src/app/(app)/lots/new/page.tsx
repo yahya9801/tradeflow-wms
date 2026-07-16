@@ -6,9 +6,16 @@ import { BlockedScreen } from "@/components/blocked-screen";
 import { listCommodities, listClients } from "@/lib/lots";
 import { LotForm } from "../lot-form";
 
-export default async function NewLotPage() {
+export default async function NewLotPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ direction?: string }>;
+}) {
   const gate = await requireCapability("manage_lots");
   if (!gate.allowed) return <BlockedScreen required="manage_lots" role={gate.role} />;
+
+  const { direction } = await searchParams;
+  const initialDirection = direction === "export" ? "export" : "import";
 
   const [commodities, clients] = await Promise.all([listCommodities(), listClients()]);
 
@@ -28,7 +35,7 @@ export default async function NewLotPage() {
         commodities={commodities}
         clients={clients}
         initial={{
-          direction: "import", status: "pending", commodity_id: "", client_id: "",
+          direction: initialDirection, status: "pending", commodity_id: "", client_id: "",
           quantity_mt: "", origin_country: "", destination_country: "", vessel_name: "",
           bl_number: "", export_ref: "", payment_terms: "", eta: "", notes: "",
         }}
