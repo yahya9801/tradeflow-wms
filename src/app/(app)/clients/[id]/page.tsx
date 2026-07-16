@@ -7,6 +7,8 @@ import { BlockedScreen } from "@/components/blocked-screen";
 import { can } from "@/lib/permissions";
 import { getClient, getClientStats, getClientLots, getClientInvoices } from "@/lib/clients";
 import { STATUS_LABELS, type LotStatus } from "@/lib/lot-status";
+import { ClientDialog } from "../client-dialog";
+import { DeleteClientButton } from "./delete-client-button";
 
 const mt = (n: number) => `${n.toLocaleString("en-US", { maximumFractionDigits: 0 })} MT`;
 const money = (n: number, ccy: string) =>
@@ -27,6 +29,7 @@ export default async function ClientProfilePage({ params }: { params: Promise<{ 
   if (!client) notFound();
 
   const showMoney = can(gate.session.profile.role, "view_financials");
+  const isOwner = can(gate.session.profile.role, "manage_users");
 
   const [stats, lots, invoices] = await Promise.all([
     getClientStats(id),
@@ -53,6 +56,23 @@ export default async function ClientProfilePage({ params }: { params: Promise<{ 
             {client.country ? ` · ${client.country}` : ""}
           </p>
         </div>
+        {isOwner ? (
+          <div className="flex items-center gap-2">
+            <ClientDialog
+              client={{
+                id: client.id,
+                name: client.name,
+                type: client.type,
+                country: client.country,
+                contact_name: client.contact_name,
+                email: client.email,
+                phone: client.phone,
+                currency: client.currency,
+              }}
+            />
+            <DeleteClientButton clientId={client.id} />
+          </div>
+        ) : null}
       </div>
 
       <div className="grid gap-4 sm:grid-cols-2">

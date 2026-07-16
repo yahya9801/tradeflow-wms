@@ -3,8 +3,10 @@ import { ArrowRight } from "lucide-react";
 
 import { requireCapability } from "@/lib/auth";
 import { BlockedScreen } from "@/components/blocked-screen";
+import { can } from "@/lib/permissions";
 import { listClientsDirectory } from "@/lib/clients";
 import { ClientFilters } from "./client-filters";
+import { ClientDialog } from "./client-dialog";
 
 const TYPE_LABELS: Record<string, string> = {
   buyer: "Buyer",
@@ -25,11 +27,14 @@ export default async function ClientsPage({
 
   return (
     <div className="mx-auto flex max-w-5xl flex-col gap-6">
-      <div className="flex flex-col gap-1">
-        <h1 className="text-2xl font-semibold tracking-tight">Clients</h1>
-        <p className="text-sm text-muted-foreground">
-          {counts.buyers} buyers · {counts.suppliers} suppliers · {counts.withLots} with active lots.
-        </p>
+      <div className="flex items-start justify-between gap-4">
+        <div className="flex flex-col gap-1">
+          <h1 className="text-2xl font-semibold tracking-tight">Clients</h1>
+          <p className="text-sm text-muted-foreground">
+            {counts.buyers} buyers · {counts.suppliers} suppliers · {counts.withLots} with active lots.
+          </p>
+        </div>
+        {can(gate.session.profile.role, "manage_users") ? <ClientDialog /> : null}
       </div>
 
       <ClientFilters counts={counts} />
