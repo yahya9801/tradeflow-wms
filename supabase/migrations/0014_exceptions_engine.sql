@@ -33,12 +33,12 @@ declare
   occ numeric := 0;
 begin
   perform gen_lot_exception(
-    new.id, 'missing_bl', 'warning',
+    new.id, 'missing_bl'::exception_type, 'warning'::exception_severity,
     new.status = 'in_transit' and new.bl_number is null,
     'Lot ' || new.lot_number || ' is In Transit without a B/L number.');
 
   perform gen_lot_exception(
-    new.id, 'missing_payment_terms', 'warning',
+    new.id, 'missing_payment_terms'::exception_type, 'warning'::exception_severity,
     new.direction = 'export' and new.payment_terms is null,
     'Export lot ' || new.lot_number || ' has no payment terms.');
 
@@ -52,8 +52,8 @@ begin
     occ := case when shed_cap > 0 then shed_used / shed_cap * 100 else 0 end;
   end if;
   perform gen_lot_exception(
-    new.id, 'low_capacity',
-    case when occ >= 100 then 'critical' else 'warning' end,
+    new.id, 'low_capacity'::exception_type,
+    (case when occ >= 100 then 'critical' else 'warning' end)::exception_severity,
     new.status = 'stored' and occ > threshold,
     'Shed at ' || round(occ) || '% capacity after storing ' || new.lot_number || '.');
 
