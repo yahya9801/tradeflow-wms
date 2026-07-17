@@ -6,11 +6,13 @@ import { Trash2 } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import { deleteClient, type ClientActionState } from "../actions";
+import { useActionToast } from "@/lib/use-action-toast";
 
 /** Deletion is refused (with a reason) when the client has lots or invoices. */
 export function DeleteClientButton({ clientId }: { clientId: string }) {
   const router = useRouter();
   const [state, formAction] = useActionState<ClientActionState, FormData>(deleteClient, { error: null });
+  useActionToast(state, { success: "Client removed" });
 
   // On a clean delete the client no longer exists — return to the directory.
   useEffect(() => {

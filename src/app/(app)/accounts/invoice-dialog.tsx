@@ -9,6 +9,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Dialog, DialogContent, DialogDescription, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { saveInvoice, type InvoiceActionState } from "./actions";
+import { useActionToast } from "@/lib/use-action-toast";
 import type { Option } from "@/lib/finance";
 
 const labelClass = "font-mono text-[0.6875rem] uppercase tracking-wider text-muted-foreground";
@@ -50,6 +51,7 @@ export function InvoiceDialog({
   const isEdit = Boolean(prefill?.id);
   const [open, setOpen] = useState(false);
   const [state, formAction] = useActionState<InvoiceActionState, FormData>(saveInvoice, { error: null });
+  useActionToast(state, { success: isEdit ? "Invoice updated" : "Invoice created" });
 
   const [type, setType] = useState<"receivable" | "payable">(prefill?.type ?? "receivable");
   const [clientId, setClientId] = useState(prefill?.client_id ?? "");

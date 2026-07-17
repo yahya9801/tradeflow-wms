@@ -11,6 +11,7 @@ import {
 import { cn } from "@/lib/utils";
 import { LOT_STATUSES, STATUS_LABELS, statusIndex, type LotStatus } from "@/lib/lot-status";
 import { transitionLot, type LotActionState } from "../actions";
+import { useActionToast } from "@/lib/use-action-toast";
 
 type Shed = { id: string; name: string; free_mt: number };
 type Warehouse = { id: string; name: string; sheds: Shed[] };
@@ -32,6 +33,7 @@ export function StatusStepper({
   warehouses: Warehouse[];
 }) {
   const [state, formAction] = useActionState<LotActionState, FormData>(transitionLot, { error: null });
+  useActionToast(state, { success: "Status updated" });
   const [storeOpen, setStoreOpen] = useState(false);
   const [shedId, setShedId] = useState("");
   const currentIdx = statusIndex(current);

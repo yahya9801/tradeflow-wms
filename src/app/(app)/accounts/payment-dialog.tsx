@@ -8,6 +8,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Dialog, DialogContent, DialogDescription, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { recordPayment, type InvoiceActionState } from "./actions";
+import { useActionToast } from "@/lib/use-action-toast";
 
 const labelClass = "font-mono text-[0.6875rem] uppercase tracking-wider text-muted-foreground";
 
@@ -29,6 +30,7 @@ export function PaymentDialog({
 }) {
   const [open, setOpen] = useState(false);
   const [state, formAction] = useActionState<InvoiceActionState, FormData>(recordPayment, { error: null });
+  useActionToast(state, { success: "Payment recorded" });
   const [amount, setAmount] = useState("");
   const today = new Date().toISOString().slice(0, 10);
 

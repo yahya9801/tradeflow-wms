@@ -9,6 +9,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Dialog, DialogContent, DialogDescription, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { flagException, type LotActionState } from "../actions";
+import { useActionToast } from "@/lib/use-action-toast";
 
 const labelClass = "font-mono text-[0.6875rem] uppercase tracking-wider text-muted-foreground";
 const selectClass =
@@ -22,6 +23,7 @@ function SubmitButton() {
 export function FlagIssueDialog({ lotId }: { lotId: string }) {
   const [open, setOpen] = useState(false);
   const [state, formAction] = useActionState<LotActionState, FormData>(flagException, { error: null });
+  useActionToast(state, { success: "Issue flagged" });
   const [type, setType] = useState("weight_shortage");
   const [severity, setSeverity] = useState("warning");
   const [description, setDescription] = useState("");

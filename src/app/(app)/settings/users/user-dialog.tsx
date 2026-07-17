@@ -6,6 +6,7 @@ import { useFormStatus } from "react-dom";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogDescription, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { saveUser, type UserActionState } from "./actions";
+import { useActionToast } from "@/lib/use-action-toast";
 import { ROLES, ROLE_LABELS, roleBlurb } from "./roles";
 import type { AppRole } from "@/lib/permissions";
 
@@ -17,6 +18,7 @@ function SubmitButton() {
 export function UserDialog({ user }: { user: { id: string; full_name: string; role: AppRole; active: boolean } }) {
   const [open, setOpen] = useState(false);
   const [state, formAction] = useActionState<UserActionState, FormData>(saveUser, { error: null });
+  useActionToast(state, { success: "User updated" });
   const [role, setRole] = useState<AppRole>(user.role);
   const [active, setActive] = useState(user.active);
 

@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { cn } from "@/lib/utils";
 import { resolveException, type LotActionState } from "../actions";
+import { useActionToast } from "@/lib/use-action-toast";
 import type { LotException } from "@/lib/lots";
 
 const SEVERITY: Record<string, { cls: string; label: string }> = {
@@ -83,6 +84,7 @@ function ExceptionCard({
   canResolve: boolean;
 }) {
   const [state, formAction] = useActionState<LotActionState, FormData>(resolveException, { error: null });
+  useActionToast(state, { success: "Exception resolved" });
   const [note, setNote] = useState("");
   const sev = SEVERITY[exception.severity] ?? SEVERITY.notice;
 

@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { saveCompany, type CompanyActionState } from "./actions";
+import { useActionToast } from "@/lib/use-action-toast";
 import type { Company } from "@/lib/company";
 
 const labelClass = "font-mono text-[0.6875rem] uppercase tracking-wider text-muted-foreground";
@@ -18,6 +19,7 @@ function SubmitButton() {
 
 export function CompanyForm({ company }: { company: Company }) {
   const [state, formAction] = useActionState<CompanyActionState, FormData>(saveCompany, { error: null });
+  useActionToast(state, { success: "Company info saved" });
   const regs = Object.entries(company.registrations);
 
   return (
