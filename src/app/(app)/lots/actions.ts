@@ -6,6 +6,7 @@ import { createClient } from "@/lib/supabase/server";
 import { requireCapability } from "@/lib/auth";
 import { writeAudit } from "@/lib/audit";
 import { lotFormToInput, lotSchema } from "@/lib/schemas/lot";
+import { flagSchema } from "@/lib/schemas/flag";
 import { allowedTransitions, type LotStatus } from "@/lib/lot-status";
 
 export type LotActionState = {
@@ -219,5 +220,38 @@ export async function resolveException(_prev: LotActionState, formData: FormData
   await writeAudit("resolve", "exception", id, { note, auto: false, lot_id: lotId });
 
   revalidatePath(`/lots/${lotId}`);
+  return { error: null, ok: true };
+}
+
+export async function flagException(_prev: LotActionState, formData: FormData): Promise<LotActionState> {
+  const gate = await requireCapability("manage_lots");
+  if (!gate.allowed) return { error: "You do not have permission to flag issues." };
+
+  const parsed = flagSchema.safeParse({
+    lot_id: formData.get("lot_id") ?? undefined,
+    type: formData.get("type") ?? undefined,
+    severity: formData.get("severity") ?? undefined,
+    description: formData.get("description") ?? undefined,
+  });
+  if (!parsed.success) {
+    const fieldErrors: Record<string, string> = {};
+    for (const i of parsed.error.issues) {
+      const k = String(i.path[0] ?? "");
+      if (k && !fieldErrors[k]) fieldErrors[k] = i.message;
+    }
+    return { error: null, fieldErrors };
+  }
+
+  const v = parsed.data;
+  const supabase = await createClient();
+  const { data, error } = await supabase
+    .from("exceptions")
+    .insert({ lot_id: v.lot_id, type: v.type, severity: v.severity, description: v.description })
+    .select("id")
+    .single();
+  if (error) return { error: error.message };
+
+  await writeAudit("flag", "exception", data.id, { after: { lot_id: v.lot_id, type: v.type, severity: v.severity } });
+  revalidatePath(`/lots/${v.lot_id}`);
   return { error: null, ok: true };
 }
