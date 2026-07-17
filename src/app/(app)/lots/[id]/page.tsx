@@ -13,6 +13,7 @@ import { listClientOptions, listLotOptions } from "@/lib/finance";
 import { allowedTransitions, STATUS_LABELS } from "@/lib/lot-status";
 import { StatusStepper } from "./status-stepper";
 import { ExceptionList } from "./exception-list";
+import { FlagIssueDialog } from "./flag-issue-dialog";
 import { InvoiceDialog } from "@/app/(app)/accounts/invoice-dialog";
 
 const money = (n: number, ccy: string) =>
@@ -117,7 +118,10 @@ export default async function LotDetailPage({ params }: { params: Promise<{ id: 
 
       {/* The demo gap fix: exceptions are real records, shown here, resolvable. */}
       <section className="flex flex-col gap-3">
-        <h2 className="text-sm font-medium">Exceptions</h2>
+        <div className="flex items-center justify-between">
+          <h2 className="text-sm font-medium">Exceptions</h2>
+          {canEdit ? <FlagIssueDialog lotId={lot.id} /> : null}
+        </div>
         <ExceptionList lotId={lot.id} exceptions={exceptions} canResolve={canEdit} />
       </section>
 
