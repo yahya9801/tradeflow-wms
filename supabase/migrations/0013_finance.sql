@@ -35,9 +35,9 @@ begin
   end if;
   update invoices set
     amount_paid = paid,
-    status = case when paid >= inv_amount and inv_amount > 0 then 'paid'
-                  when paid > 0 then 'partial'
-                  else 'pending' end
+    status = (case when paid >= inv_amount and inv_amount > 0 then 'paid'
+                   when paid > 0 then 'partial'
+                   else 'pending' end)::invoice_status
   where id = inv_id;
   return coalesce(new, old);
 end $$;
@@ -56,9 +56,9 @@ begin
     raise exception 'invoice amount % is below payments already recorded %', new.amount, paid;
   end if;
   new.amount_paid := paid;
-  new.status := case when paid >= new.amount and new.amount > 0 then 'paid'
-                     when paid > 0 then 'partial'
-                     else 'pending' end;
+  new.status := (case when paid >= new.amount and new.amount > 0 then 'paid'
+                      when paid > 0 then 'partial'
+                      else 'pending' end)::invoice_status;
   return new;
 end $$;
 
