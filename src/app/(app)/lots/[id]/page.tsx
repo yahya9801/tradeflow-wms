@@ -5,13 +5,15 @@ import { ChevronLeft } from "lucide-react";
 import { requireCapability } from "@/lib/auth";
 import { BlockedScreen } from "@/components/blocked-screen";
 import { can } from "@/lib/permissions";
-import { buttonVariants } from "@/components/ui/button";
+import { Button, buttonVariants } from "@/components/ui/button";
 import {
   getLot, getLotInvoices, getLotExceptions, listWarehousesWithSheds,
 } from "@/lib/lots";
+import { listClientOptions, listLotOptions } from "@/lib/finance";
 import { allowedTransitions, STATUS_LABELS } from "@/lib/lot-status";
 import { StatusStepper } from "./status-stepper";
 import { ExceptionList } from "./exception-list";
+import { InvoiceDialog } from "@/app/(app)/accounts/invoice-dialog";
 
 const money = (n: number, ccy: string) =>
   `${ccy} ${n.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
@@ -28,12 +30,15 @@ export default async function LotDetailPage({ params }: { params: Promise<{ id: 
   const isOwner = role === "owner";
   const showMoney = can(role, "view_financials");
   const canEdit = can(role, "manage_lots");
+  const canInvoice = can(role, "manage_invoices");
 
-  const [invoices, exceptions, warehouses] = await Promise.all([
+  const [invoices, exceptions, warehouses, clientOpts, lotOpts] = await Promise.all([
     // Not merely hidden: for Management RLS returns nothing anyway.
     showMoney ? getLotInvoices(id) : Promise.resolve([]),
     getLotExceptions(id),
     canEdit ? listWarehousesWithSheds() : Promise.resolve([]),
+    canInvoice ? listClientOptions() : Promise.resolve([]),
+    canInvoice ? listLotOptions() : Promise.resolve([]),
   ]);
 
   return (
@@ -118,7 +123,21 @@ export default async function LotDetailPage({ params }: { params: Promise<{ id: 
 
       {showMoney ? (
         <section className="flex flex-col gap-3">
-          <h2 className="text-sm font-medium">Invoices</h2>
+          <div className="flex items-center justify-between">
+            <h2 className="text-sm font-medium">Invoices</h2>
+            {canInvoice ? (
+              <InvoiceDialog
+                clients={clientOpts}
+                lots={lotOpts}
+                prefill={{
+                  client_id: lot.client_id,
+                  lot_id: lot.id,
+                  type: lot.direction === "export" ? "receivable" : "payable",
+                }}
+                trigger={<Button size="sm" variant="outline">Raise invoice</Button>}
+              />
+            ) : null}
+          </div>
           {invoices.length === 0 ? (
             <div className="rounded-xl border border-dashed p-6 text-center text-sm text-muted-foreground">
               No invoices raised against this lot.
