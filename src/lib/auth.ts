@@ -10,6 +10,7 @@ export type Profile = {
   full_name: string;
   role: AppRole;
   department: string | null;
+  active: boolean;
 };
 
 export type Session = {
@@ -34,12 +35,13 @@ export const getSession = cache(async (): Promise<Session | null> => {
 
   const { data: profile } = await supabase
     .from("profiles")
-    .select("id, full_name, role, department")
+    .select("id, full_name, role, department, active")
     .eq("id", user.id)
     .single();
 
-  // An authed user with no profile row has no capabilities rather than crashing.
-  if (!profile) return null;
+  // No profile row, or a deactivated one, has no session — blocked by
+  // construction rather than only UI-hidden.
+  if (!profile || profile.active === false) return null;
 
   return {
     user: { id: user.id, email: user.email ?? null },
