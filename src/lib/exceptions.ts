@@ -2,6 +2,14 @@ import "server-only";
 
 import { createClient } from "@/lib/supabase/server";
 import { sortBySeverity, type Severity } from "@/lib/exception-format";
+import { getAlertToggles, type AlertToggles } from "@/lib/preferences";
+
+// Exception type → alert toggle. Types without a toggle always show.
+const TOGGLE_FOR: Record<string, keyof AlertToggles> = {
+  overdue_invoice: "overdue_invoices",
+  low_capacity: "over_capacity",
+  missing_bl: "missing_bl",
+};
 
 export type OpenException = {
   id: string;
@@ -42,7 +50,14 @@ export async function getOpenExceptions(limit?: number): Promise<OpenException[]
     description: r.description,
     created_at: r.created_at,
   }));
-  const sorted = sortBySeverity(rows);
+  // Preferences alert toggles genuinely drive visibility: a disabled type is
+  // dropped from the Action Center / Live Ops. Types without a toggle show.
+  const toggles = await getAlertToggles();
+  const enabled = rows.filter((r) => {
+    const key = TOGGLE_FOR[r.type];
+    return key ? toggles[key] : true;
+  });
+  const sorted = sortBySeverity(enabled);
   return limit ? sorted.slice(0, limit) : sorted;
 }
 
