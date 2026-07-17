@@ -2,8 +2,16 @@ import Link from "next/link";
 
 import { requireCapability } from "@/lib/auth";
 import { BlockedScreen } from "@/components/blocked-screen";
-import { getAccountsSummary, getAging, listInvoices, type InvoiceType } from "@/lib/finance";
+import { can } from "@/lib/permissions";
+import { Button } from "@/components/ui/button";
+import {
+  getAccountsSummary, getAging, listInvoices, listClientOptions, listLotOptions,
+  type InvoiceType, type Option,
+} from "@/lib/finance";
 import { InvoiceTable } from "./invoice-table";
+import { InvoiceDialog } from "./invoice-dialog";
+import { PaymentDialog } from "./payment-dialog";
+import { DeleteInvoiceButton } from "./delete-invoice-button";
 
 const money = (n: number, ccy: string) =>
   `${ccy} ${n.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
@@ -26,12 +34,22 @@ export default async function AccountsPage({
 
   const sp = await searchParams;
   const tab = TABS.some((t) => t.key === sp.tab) ? sp.tab! : "overview";
+  const canManage = can(gate.session.profile.role, "manage_invoices");
+
+  // Pickers for the create/edit dialogs — only loaded when the user can write.
+  const [clients, lots] = await Promise.all([
+    canManage ? listClientOptions() : Promise.resolve([] as Option[]),
+    canManage ? listLotOptions() : Promise.resolve([] as Option[]),
+  ]);
 
   return (
     <div className="mx-auto flex max-w-5xl flex-col gap-6">
-      <div className="flex flex-col gap-1">
-        <h1 className="text-2xl font-semibold tracking-tight">Accounts</h1>
-        <p className="text-sm text-muted-foreground">Receivables, payables, aging, and currency exposure.</p>
+      <div className="flex items-start justify-between gap-4">
+        <div className="flex flex-col gap-1">
+          <h1 className="text-2xl font-semibold tracking-tight">Accounts</h1>
+          <p className="text-sm text-muted-foreground">Receivables, payables, aging, and currency exposure.</p>
+        </div>
+        {canManage ? <InvoiceDialog clients={clients} lots={lots} /> : null}
       </div>
 
       <nav className="flex w-fit gap-1 rounded-lg border p-1">
@@ -48,7 +66,11 @@ export default async function AccountsPage({
         ))}
       </nav>
 
-      {tab === "overview" ? <Overview /> : <Ledger type={tab as InvoiceType} status={sp.status} q={sp.q} />}
+      {tab === "overview" ? (
+        <Overview />
+      ) : (
+        <Ledger type={tab as InvoiceType} status={sp.status} q={sp.q} canManage={canManage} clients={clients} lots={lots} />
+      )}
     </div>
   );
 }
@@ -118,7 +140,12 @@ function AgingCard({ title, buckets }: { title: string; buckets: { label: string
   );
 }
 
-async function Ledger({ type, status, q }: { type: InvoiceType; status?: string; q?: string }) {
+async function Ledger({
+  type, status, q, canManage, clients, lots,
+}: {
+  type: InvoiceType; status?: string; q?: string;
+  canManage: boolean; clients: Option[]; lots: Option[];
+}) {
   const rows = await listInvoices({ type, status, q });
   const active = STATUSES.includes((status ?? "all") as (typeof STATUSES)[number]) ? status ?? "all" : "all";
 
@@ -142,7 +169,28 @@ async function Ledger({ type, status, q }: { type: InvoiceType; status?: string;
           );
         })}
       </div>
-      <InvoiceTable rows={rows} />
+      <InvoiceTable
+        rows={rows}
+        actions={
+          canManage
+            ? (row) => (
+                <div className="flex items-center justify-end gap-1">
+                  <PaymentDialog invoiceId={row.id} invoiceNo={row.invoice_no} currency={row.currency} remaining={row.outstanding} />
+                  <InvoiceDialog
+                    clients={clients}
+                    lots={lots}
+                    prefill={{
+                      id: row.id, type: row.type, client_id: row.client_id, lot_id: row.lot_id,
+                      currency: row.currency, amount: row.amount, due_date: row.due_date, description: row.description,
+                    }}
+                    trigger={<Button variant="ghost" size="sm">Edit</Button>}
+                  />
+                  <DeleteInvoiceButton invoiceId={row.id} />
+                </div>
+              )
+            : undefined
+        }
+      />
     </div>
   );
 }

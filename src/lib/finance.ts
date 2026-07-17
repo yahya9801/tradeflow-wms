@@ -158,3 +158,17 @@ export async function getAging(type: InvoiceType): Promise<AgingBucket[]> {
     .filter((r) => r.outstanding > 0);
   return agingBuckets(items, new Date());
 }
+
+export type Option = { id: string; label: string };
+
+export async function listClientOptions(): Promise<Option[]> {
+  const supabase = await createClient();
+  const { data } = await supabase.from("clients").select("id, name").order("name");
+  return ((data ?? []) as { id: string; name: string }[]).map((c) => ({ id: c.id, label: c.name }));
+}
+
+export async function listLotOptions(): Promise<Option[]> {
+  const supabase = await createClient();
+  const { data } = await supabase.from("lots").select("id, lot_number").order("lot_number", { ascending: false });
+  return ((data ?? []) as { id: string; lot_number: string }[]).map((l) => ({ id: l.id, label: l.lot_number }));
+}
