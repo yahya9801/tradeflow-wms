@@ -9,6 +9,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Dialog, DialogContent, DialogDescription, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { saveClient, type ClientActionState } from "./actions";
+import { useActionToast } from "@/lib/use-action-toast";
 
 const labelClass = "font-mono text-[0.6875rem] uppercase tracking-wider text-muted-foreground";
 const selectClass =
@@ -38,6 +39,7 @@ export function ClientDialog({ client }: { client?: Client }) {
   const isEdit = Boolean(client);
   const [open, setOpen] = useState(false);
   const [state, formAction] = useActionState<ClientActionState, FormData>(saveClient, { error: null });
+  useActionToast(state, { success: isEdit ? "Client updated" : "Client created" });
 
   // Controlled inputs: React 19 resets an uncontrolled form after the action
   // completes, wiping the user's values on a validation error.

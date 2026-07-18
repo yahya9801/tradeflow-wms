@@ -9,6 +9,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { cn } from "@/lib/utils";
 import { saveLot, type LotActionState } from "./actions";
+import { useActionToast } from "@/lib/use-action-toast";
 
 const labelClass = "font-mono text-[0.6875rem] uppercase tracking-wider text-muted-foreground";
 
@@ -53,6 +54,7 @@ export function LotForm({
   const isEdit = Boolean(initial.id);
   const router = useRouter();
   const [state, formAction] = useActionState<LotActionState, FormData>(saveLot, { error: null });
+  useActionToast(state, { success: "Lot saved" });
 
   // Controlled: React 19 resets an uncontrolled form once the action completes,
   // which would wipe everything the user typed on a validation error.

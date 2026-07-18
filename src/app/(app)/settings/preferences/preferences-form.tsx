@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { savePreferences, type PrefActionState } from "./actions";
+import { useActionToast } from "@/lib/use-action-toast";
 import { CURRENCIES, DATE_FORMATS } from "@/lib/schemas/preferences";
 import type { Preferences } from "@/lib/preferences";
 
@@ -26,6 +27,7 @@ const TOGGLES: { key: "overdue_invoices" | "over_capacity" | "missing_bl"; label
 
 export function PreferencesForm({ prefs }: { prefs: Preferences }) {
   const [state, formAction] = useActionState<PrefActionState, FormData>(savePreferences, { error: null });
+  useActionToast(state, { success: "Preferences saved" });
 
   return (
     <form action={formAction} className="flex flex-col gap-5">
